@@ -1,0 +1,55 @@
+Bootstrap: docker
+From: osrf/ros:melodic-desktop-full
+
+%help
+    ROS-melodic container - Gazebo simulation - HKUST Swarm
+
+%labels
+    Version v0.0.1
+
+%setup
+    mkdir -p ${SINGULARITY_ROOFS}/ws/src
+    git clone git@github.com:Swarm-UST/gazebo_ros_demos.git ${SINGULARITY_ROOFS}/ws/src/sim
+
+# %files
+#     /home/eric/ros_files/singularity_def/sim /ws/src/sim
+
+%post
+    export GAZEBO_RESOURCE_PATH=$GAZEBO_RESOURCE_PATH:/ws/src/sim/mybot_description/models
+    . /opt/ros/melodic/setup.sh
+    cd /ws
+    rosdep init && rosdep update && rosdep install --from-path src --ignore-src -r -y
+    catkin_make
+
+%runscript
+    . /opt/ros/melodic/setup.sh
+    . /ws/devel/setup.sh
+    export GAZEBO_RESOURCE_PATH=$GAZEBO_RESOURCE_PATH:/ws/src/sim/mybot_description/models
+    mkdir -p /tmp/gazebo_singularity/dconf && export XDG_RUNTIME_DIR=/tmp/gazebo_singularity
+    cd /ws
+    echo -e "\e[32mStart roscore\e[00m"
+    roscore &
+    echo "launch simulation"
+    exec roslaunch --wait rrbot_gazebo single_robot_simulation.launch 
+
+# %startscript
+#     . /opt/ros/melodic/setup.sh
+#     . /ws/devel/setup.sh
+#     cd /ws
+#     echo "Start roscore"
+#     roscore &
+#     echo "launch simulation"
+#     roslaunch --wait rrbot_gazebo single_robot_simulation.launch 
+
+%test
+    if [ ! -e "/ws/src/sim/rrbot_gazebo" ]; then
+        echo -e "\e[31mError\e[00m: Gazebo_demo does not exist"
+    else
+        echo -e "\e[32mPass\e[00m: Gazebo_demo found"
+    fi
+
+    if [ ! -d "/ws/src/sim/mybot_description/models" ]; then
+        echo -e "\e[31mError\e[00m: Invalid Gazebo resource path"
+    else    
+        echo -e "\e[32mPass\e[00m: Gazebo resource path resolved"
+    fi
